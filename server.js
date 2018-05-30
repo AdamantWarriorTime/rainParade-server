@@ -27,7 +27,18 @@ app.use(express.urlencoded({extended:true})); // body parser
 
 app.get('/test', (req, res) => res.send('hello world'))
 
+app.get('/api/v1/weather', (req, res) => {
+    let url = 'https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GHCND';
+    let query = '';
 
+    if(req.query.date) query += `&startdate=${req.query.date}&enddate=${req.query.date}`
+    if(req.query.zipCode) query += `&locationid=ZIP:${req.query.zipCode}`;
+    // if(req.query.userLocation) query += `&locationid=`
+    superagent.get(url)
+        .query({'q': query})
+        .query({'key': API_KEY})
+        .then(console.log)
+})
 app.get('*', (req, res) => res.status(403).send('This route does not exist'));
 
 app.listen(PORT, () => console.log(`Listening on port: ${PORT}`));
