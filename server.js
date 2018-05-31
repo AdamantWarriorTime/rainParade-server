@@ -32,27 +32,27 @@ app.get('/api/v1/location', (req, res) => {
   // console.log(req.query)
   let geoCodeUrl =`https://maps.googleapis.com/maps/api/geocode/json`;
   let darkSkyUrl = `https://api.darksky.net/forecast/${SKY_API_KEY}/`;
-  let rtnObj = {
+  let holdObj = {
     historyData: [],
     years:[],
   };
-  rtnObj.calcYears = function(dateStr) {
+  holdObj.calcYears = function(dateStr) {
     for(let i = 1; i < 3; i++) {
       let year = parseInt(dateStr.split('-')[0]) - i;
-      rtnObj.years.push(dateStr.replace(/^\d{1,4}/g, year.toString()));
+      holdObj.years.push(dateStr.replace(/^\d{1,4}/g, year.toString()));
     }
   };
-  rtnObj.calcYears(req.query.date);
+  holdObj.calcYears(req.query.date);
 
   superagent.get(geoCodeUrl)
     .query({address: req.query.location})
     .query({key: MAP_API_KEY})
     .then(data => {
-      rtnObj.address = data.body.results[0].formatted_address;
-      rtnObj.latitude = data.body.results[0].geometry.location.lat;
-      rtnObj.longitude = data.body.results[0].geometry.location.lng;
-      // console.log(rtnObj)
-      return rtnObj;
+      holdObj.address = data.body.results[0].formatted_address;
+      holdObj.latitude = data.body.results[0].geometry.location.lat;
+      holdObj.longitude = data.body.results[0].geometry.location.lng;
+      // console.log(holdObj)
+      return holdObj;
     })
     .then(obj => {
       let promises = [];
@@ -64,8 +64,23 @@ app.get('/api/v1/location', (req, res) => {
       return Promise.all(promises);
     })
     .then(promiseArr => {
-      promiseArr.forEach(element => rtnObj.historyData.push(element.body));
-      console.log(rtnObj);
+      promiseArr.forEach(element => holdObj.historyData.push(element.body));
+      console.log(holdObj);
+      let rtnObj = {
+        address: holdObj.address,
+        date: req.query.date,
+        years: holdObj.years,
+        summary: [],
+        precipProbability: [],
+        temperatureHigh: [],
+        temperatureLow: [],
+      };
+      holdObj.historyData.forEach(obj => {
+        rtnObj.summary.push(obj.daily.data[0].summary);
+        rtnObj.precipProbability.push(obj.daily.data[0].precipProbability);
+        rtnObj.temperatureHigh.push(obj.daily.data[0].temperatureHigh);
+        rtnObj.temperatureLow.push(obj.daily.data[0].temperatureLow);
+      });
       res.send(rtnObj);
     });
 });
