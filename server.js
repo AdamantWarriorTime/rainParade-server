@@ -27,74 +27,119 @@ app.use(express.urlencoded({extended:true})); // body parser
 
 app.get('/test', (req, res) => res.send('hello world'));
 
+// Using time as srting for Dark Sky API
 app.get('/api/v1/location', (req, res) => {
-  console.log(req.query);
+  // console.log(req.query)
   let geoCodeUrl =`https://maps.googleapis.com/maps/api/geocode/json`;
-  let timeZoneUrl = '';
   let darkSkyUrl = `https://api.darksky.net/forecast/${SKY_API_KEY}/`;
-  let rtnObj = {};
-  rtnObj.historyData = [];
-  rtnObj.calcUnixTime = function(obj) {
-    let arr = obj.query.date.split('-').map(Number);
-    this.unixTime = (arr[0] - 1970) * 31556926 + (arr[1] - 1) * 2629743 + (arr[2] - 1) * 86400;
+  let rtnObj = {
+    historyData: [],
+    years:[],
   };
-  rtnObj.calcUnixTime(req);
-  // console.log(rtnObj);
+  rtnObj.calcYears = function(dateStr) {
+    for(let i = 1; i < 3; i++) {
+      let year = parseInt(dateStr.split('-')[0]) - i;
+      rtnObj.years.push(dateStr.replace(/^\d{1,4}/g, year.toString()));
+    }
+  };
+  rtnObj.calcYears(req.query.date);
+//   console.log(rtnObj)
 
   superagent.get(geoCodeUrl)
     .query({address: req.query.location})
     .query({key: MAP_API_KEY})
-    // .then(data => console.log(data.body.results[0].geometry.location))
     .then(data => {
-    //   console.log(data.body.results[0]);
       rtnObj.address = data.body.results[0].formatted_address;
       rtnObj.latitude = data.body.results[0].geometry.location.lat;
       rtnObj.longitude = data.body.results[0].geometry.location.lng;
-      timeZoneUrl = `https://maps.googleapis.com/maps/api/timezone/json?location=${rtnObj.latitude},${rtnObj.longitude}`;
+      // console.log(rtnObj)
       return rtnObj;
     })
     .then(obj => {
-      superagent.get(timeZoneUrl)
-        .query({timestamp: obj.unixTime})
-        .query({key: MAP_API_KEY})
-        // .then(data => console.log(data.body.rawOffset))
-        .then( data => {
-        //   console.log('before'+obj.unixTime)
-          obj.unixTime = obj.unixTime + data.body.dstOffset + data.body.rawOffset;
-          console.log('after adddition'+obj.unixTime)
-          return obj;
-        })
-        .then(obj => {
-          for(let i = 1; i < 2; i++) {
-            superagent.get(`${darkSkyUrl}${obj.latitude},${obj.longitude},${obj.unixTime - 31556926 * i}`)
-              .then(data => console.log(data.body))
-          }
-        })
-        //       .then(data => obj.historyData.push(data))
-        //   }
-        // });
+      let promises = [];
+      for (let i = 0; i < obj.years.length; i++) {
+        promises.push(
+          superagent.get(darkSkyUrl+`${obj.latitude},${obj.longitude},${obj.years[i]}T12:00:00?exclude=flags,hourly`)
+        );
+      }
+      return Promise.all(promises);
     })
-    // .then(obj => {
-    //   console.log('objjjjjjjjj',obj);
-    //   res.send(obj)
-    // })
-    .catch(console.error);
+    .then(promiseArr => {
+      promiseArr.forEach(element => rtnObj.historyData.push(element.body));
+      console.log(rtnObj);
+      res.send(rtnObj);
+    });
 });
 
+// Using UNIX time for Dark Sky API
+// app.get('/api/v1/location', (req, res) => {
+//   console.log(req.query);
+//   let geoCodeUrl =`https://maps.googleapis.com/maps/api/geocode/json`;
+//   let timeZoneUrl = '';
+//   let darkSkyUrl = `https://api.darksky.net/forecast/${SKY_API_KEY}/`;
+//   let rtnObj = {};
+//   rtnObj.historyData = [];
+//   rtnObj.calcUnixTime = function(obj) {
+//     let arr = obj.query.date.split('-').map(Number);
+//     this.unixTime = (arr[0] - 1970) * 31556926 + (arr[1] - 1) * 2629743 + (arr[2] - 1) * 86400;
+//   };
+//   rtnObj.calcUnixTime(req);
+//   // console.log(rtnObj);
 
-
-// app.get('/api/v1/weather', (req, res) => {
-//   let url = 'https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GHCND';
-//   let query = '';
-
-//   if(req.query.date) query += `&startdate=${req.query.date}&enddate=${req.query.date}`
-//   if(req.query.zipCode) query += `&locationid=ZIP:${req.query.zipCode}`;
-//   // if(req.query.userLocation) query += `&locationid=`
-//   superagent.get(url)
-//     .query({'q': query})
-//     .query({'key': API_KEY})
-//     .then(console.log);
+//   superagent.get(geoCodeUrl)
+//     .query({address: req.query.location})
+//     .query({key: MAP_API_KEY})
+//     // .then(data => console.log(data.body.results[0].geometry.location))
+//     .then(data => {
+//     //   console.log(data.body.results[0]);
+//       rtnObj.address = data.body.results[0].formatted_address;
+//       rtnObj.latitude = data.body.results[0].geometry.location.lat;
+//       rtnObj.longitude = data.body.results[0].geometry.location.lng;
+//       timeZoneUrl = `https://maps.googleapis.com/maps/api/timezone/json?location=${rtnObj.latitude},${rtnObj.longitude}`;
+//       return rtnObj;
+//     })
+//     .then(obj => {
+//       superagent.get(timeZoneUrl)
+//         .query({timestamp: obj.unixTime})
+//         .query({key: MAP_API_KEY})
+//         // .then(data => console.log(data.body.rawOffset))
+//         .then( data => {
+//         //   console.log('before'+obj.unixTime)
+//           obj.unixTime = obj.unixTime + data.body.dstOffset + data.body.rawOffset;
+//           console.log('after adddition'+obj.unixTime)
+//           return obj;
+//         })
+//         .then(obj => {
+//           for(let i = 1; i < 2; i++) {
+//             superagent.get(`${darkSkyUrl}${obj.latitude},${obj.longitude},${obj.unixTime - 31556926 * i}`)
+//               .then(data => console.log(data.body))
+//           }
+//         })
+//         //       .then(data => obj.historyData.push(data))
+//         //   }
+//         // });
+//     })
+//     // .then(obj => {
+//     //   console.log('objjjjjjjjj',obj);
+//     //   res.send(obj)
+//     // })
+//     .catch(console.error);
 // });
+
+
+
+// // app.get('/api/v1/weather', (req, res) => {
+// //   let url = 'https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GHCND';
+// //   let query = '';
+
+// //   if(req.query.date) query += `&startdate=${req.query.date}&enddate=${req.query.date}`
+// //   if(req.query.zipCode) query += `&locationid=ZIP:${req.query.zipCode}`;
+// //   // if(req.query.userLocation) query += `&locationid=`
+// //   superagent.get(url)
+// //     .query({'q': query})
+// //     .query({'key': API_KEY})
+// //     .then(console.log);
+// // });
 
 app.get('*', (req, res) => res.status(403).send('This route does not exist'));
 
