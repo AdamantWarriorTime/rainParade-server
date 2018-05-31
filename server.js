@@ -9,10 +9,10 @@ const superagent = require('superagent');
 //Application Set Up
 const app = express();
 const PORT = process.env.PORT;
-const TOKEN = process.env.TOKEN;
 
 //Sets up API_Key
-const API_KEY = process.env.NOAA_API_KEY;
+const MAP_API_KEY = process.env.MAP_API_KEY;
+const SKY_API_KEY = process.env.SKY_API_KEY;
 
 //Connects to Database
 const client = new pg.Client(process.env.DATABASE_URL);
@@ -25,8 +25,65 @@ app.use(express.json());
 app.use(express.urlencoded({extended:true})); // body parser
 
 
-app.get('/test', (req, res) => res.send('hello world'))
+app.get('/test', (req, res) => res.send('hello world'));
 
+// Using time as srting for Dark Sky API
+app.get('/api/v1/location', (req, res) => {
+  // console.log(req.query)
+  let geoCodeUrl =`https://maps.googleapis.com/maps/api/geocode/json`;
+  let darkSkyUrl = `https://api.darksky.net/forecast/${SKY_API_KEY}/`;
+  let holdObj = {
+    historyData: [],
+    years:[],
+  };
+  holdObj.calcYears = function(dateStr) {
+    for(let i = 1; i < 3; i++) {
+      let year = parseInt(dateStr.split('-')[0]) - i;
+      holdObj.years.push(dateStr.replace(/^\d{1,4}/g, year.toString()));
+    }
+  };
+  holdObj.calcYears(req.query.date);
+
+  superagent.get(geoCodeUrl)
+    .query({address: req.query.location})
+    .query({key: MAP_API_KEY})
+    .then(data => {
+      holdObj.address = data.body.results[0].formatted_address;
+      holdObj.latitude = data.body.results[0].geometry.location.lat;
+      holdObj.longitude = data.body.results[0].geometry.location.lng;
+      // console.log(holdObj)
+      return holdObj;
+    })
+    .then(obj => {
+      let promises = [];
+      for (let i = 0; i < obj.years.length; i++) {
+        promises.push(
+          superagent.get(darkSkyUrl+`${obj.latitude},${obj.longitude},${obj.years[i]}T12:00:00?exclude=flags,hourly`)
+        );
+      }
+      return Promise.all(promises);
+    })
+    .then(promiseArr => {
+      promiseArr.forEach(element => holdObj.historyData.push(element.body));
+      console.log(holdObj);
+      let rtnObj = {
+        address: holdObj.address,
+        date: req.query.date,
+        years: holdObj.years,
+        summary: [],
+        precipProbability: [],
+        temperatureHigh: [],
+        temperatureLow: [],
+      };
+      holdObj.historyData.forEach(obj => {
+        rtnObj.summary.push(obj.daily.data[0].summary);
+        rtnObj.precipProbability.push(obj.daily.data[0].precipProbability);
+        rtnObj.temperatureHigh.push(obj.daily.data[0].temperatureHigh);
+        rtnObj.temperatureLow.push(obj.daily.data[0].temperatureLow);
+      });
+      res.send(rtnObj);
+    });
+});
 
 app.get('*', (req, res) => res.status(403).send('This route does not exist'));
 
