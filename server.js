@@ -81,6 +81,7 @@ app.get('/api/v1/location', (req, res) => {
         rtnObj.temperatureHigh.push(obj.daily.data[0].temperatureHigh);
         rtnObj.temperatureLow.push(obj.daily.data[0].temperatureLow);
       });
+      console.log(rtnObj)
       res.send(rtnObj);
     });
 });
