@@ -81,18 +81,18 @@ app.get('/api/v1/location', (req, res) => {
         rtnObj.temperatureHigh.push(obj.daily.data[0].temperatureHigh);
         rtnObj.temperatureLow.push(obj.daily.data[0].temperatureLow);
       });
-      console.log(rtnObj)
+      console.log(rtnObj);
       res.send(rtnObj);
     });
 });
 
 app.post('/api/v1/weather', (req, res) => {
   let {address, date, avg_temp, rainy_days} = req.body;
-  let SQL = `INSERT INTO returned_weather (address, date, avg_temp, rainy_days) VALUES($1, $2, $3, $4);`
+  let SQL = `INSERT INTO returned_weather (address, date, avg_temp, rainy_days) VALUES($1, $2, $3, $4);`;
   let VALUES = [address, date, avg_temp, rainy_days];
   client.query(SQL, VALUES)
-  .then(() => res.sendStatus(201))
-  .catch(console.error);
+    .then(() => res.sendStatus(201))
+    .catch(console.error);
 });
 
 app.get('*', (req, res) => res.status(403).send('This route does not exist'));
