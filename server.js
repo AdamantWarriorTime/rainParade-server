@@ -37,7 +37,7 @@ app.get('/api/v1/location', (req, res) => {
     years:[],
   };
   holdObj.calcYears = function(dateStr) {
-    for(let i = 1; i < 3; i++) {
+    for(let i = 1; i < 11; i++) {
       let year = parseInt(dateStr.split('-')[0]) - i;
       holdObj.years.push(dateStr.replace(/^\d{1,4}/g, year.toString()));
     }
