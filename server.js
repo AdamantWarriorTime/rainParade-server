@@ -98,8 +98,8 @@ app.post('/api/v1/weather', (req, res) => {
 app.get('/api/v1/searchhistory', (req, res) => {
   let SQL = `SELECT * FROM returned_weather;`;
   client.query(SQL)
-  .then(results => res.send(results.rows))
-  .catch(console.error);
+    .then(results => res.send(results.rows))
+    .catch(console.error);
 });
 
 app.get('*', (req, res) => res.status(403).send('This route does not exist'));
